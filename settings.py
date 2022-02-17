@@ -1,0 +1,3 @@
+MEDIA_ROOT = '/media/'
+QUERY_LIMIT = 10
+SLEEP_TIME = 3
