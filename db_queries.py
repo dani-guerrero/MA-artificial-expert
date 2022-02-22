@@ -4,6 +4,8 @@ from psycopg2.extras import DictCursor
 
 from db_config import config
 
+from logger import log
+
 def runSQL(query):
     """ Connect to the PostgreSQL database server """
     conn = None
@@ -25,9 +27,7 @@ def runSQL(query):
 	# close the communication with the PostgreSQL
         cur.close()
     except (Exception, psycopg2.DatabaseError) as error:
-        logfile = open('error.log','a+')
-        print(error, file=logfile)
-        logfile.close()
+        log(error)
     finally:
         if conn is not None:
             conn.close()
