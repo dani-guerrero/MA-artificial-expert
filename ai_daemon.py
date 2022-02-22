@@ -9,7 +9,7 @@ from fasterRCNN import Cropper
 
 
 def getPendingReports():
-    fields = 'photo.report_id, photo.photo'
+    fields = 'photo.report_id, photo.photo, photo.id photo_id'
     return q.runSQL(#TODO check if not already assigned
     f"""SELECT {fields} FROM tigaserver_app_report report
     JOIN tigaserver_app_photo photo ON report."version_UUID"=photo.report_id
@@ -41,27 +41,61 @@ def classifyReports(classifier, photos, scores):
 
 
 def infer(photos):
-        photoList = list(map(lambda row: row['photo'], photos))
-        isInsect_classifier = settings.classifiers['isInsect']
+    def insertScore(scores,classifier,photos):
+        df = pd.DataFrame.from_records(photos,columns=photos[0].keys())
+        values = ""
+        for key in scores:
+            for classnum, score in enumerate(scores[key]):
+                values += f"({classnum},{score},{classifier['classifier_db_number']},{df[df['photo']==key,'report_id']},{df[df['photo']==key,'photo_id']}),\n"
 
-        insectScore = Classifier(isInsect_classifier['filename'],photoList).scores
-        insect_classification = classifyReports(isInsect_classifier,photos,insectScore)
+        values = values[:-2]# remove last comma and eof
+        q.runSQL(
+            f"""INSERT INTO tigacrafting_classificationscores(classname, score, classifier, report_id, photo_id)
+                VALUES 
+                    {values}"""
+        )
 
-        cropList = [row['photo'] for row in photos 
-            if isInsect_classifier['classes'][insect_classification[row['report_id']] == 'insect']]
+    def insertBoxes(boxes,photos):
+        df = pd.DataFrame.from_records(photos,columns=photos[0].keys())
+        values = ""
+        for key in boxes:
+            box = boxes[key]
+            values += f"((point({box['xtl']},{box['ytl']}),(point({box['xbr']},{box['ybr']}),{df[df['photo']==key,'photo_id']}),\n"
 
-        crops = Cropper(cropList).boxes
+        values = values[:-2]# remove last comma and eof
+        q.runSQL(
+            f"""INSERT INTO tigacrafting_boundingbox(top_left, bottom_right, photo_id)
+                VALUES 
+                    {values}"""
+        )
 
-        species_classifier = settings.classifiers['species']
-        speciesScore = Classifier(species_classifier['filename'],cropList,crops).scores
-        #escriure tots els scores a bdd
 
-        #species_classification = classifyReports(species_classifier,photos,speciesScore)
-        print(species_classification)
+    photoList = list(map(lambda row: row['photo'], photos))
+
+    isInsect_classifier = settings.classifiers['isInsect']
+    insectScore = Classifier(isInsect_classifier['filename'],photoList).scores
+    insect_classification = classifyReports(isInsect_classifier,photos,insectScore)
+
+    insertScore(insectScore, isInsect_classifier, photos)
+
+    cropList = [row['photo'] for row in photos 
+        if isInsect_classifier['classes'][insect_classification[row['report_id']] == 'insect']]
+    crops = Cropper(cropList).boxes
+
+    insertBoxes(crops, photos)
+
+    species_classifier = settings.classifiers['species']
+    speciesScore = Classifier(species_classifier['filename'],cropList,crops).scores
+
+    insertScore(speciesScore, species_classifier, photos)
+    print(speciesScore)
+    #species_classification = classifyReports(species_classifier,photos,speciesScore)
+    return insectScore, speciesScore
 
 def countReports(photos):
     df = pd.DataFrame.from_records(photos,columns=photos[0].keys())
     return df['report_id'].nunique()
+
 
 if __name__ == '__main__':
     while True:
@@ -71,7 +105,7 @@ if __name__ == '__main__':
             nReports = countReports(photos) 
             finished = nReports < settings.QUERY_LIMIT
             if nReports > 0:
-                inference_results = infer(photos)
-                #insertResults(inference_results)
-                #hideReports(inference_results)
+                insect, species = infer(photos)
+                #hideReports(insect,photos)
+                #throwAlarms(species,photos)
         time.sleep(settings.SLEEP_TIME)
