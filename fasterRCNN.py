@@ -48,12 +48,13 @@ class Cropper():
                         if score > max_score:
                             max_score = score
                             best_box = box
+                print(filepath, best_box)
 
                 self.boxes[self.dataset.photoList[j]] = { 
                     'xtl': best_box[0],
                     'ytl': best_box[1],
                     'xbr': best_box[2],
-                    'xbr': best_box[3],
+                    'ybr': best_box[3],
                     'score': score,
                     'class': 'insect'
                 }

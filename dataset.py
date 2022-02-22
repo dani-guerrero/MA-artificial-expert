@@ -27,6 +27,7 @@ class InferenceDataset(Dataset):
 
         if self.crops and self.photoList[idx] in self.crops:
             crop = self.crops[self.photoList[idx]]
-            image = image[crop[0]:crop[1], crop[2]:crop[3]]
+            image = image.crop((crop['xtl'],crop['ytl'],crop['xbr'],crop['ybr']))
+            image.show()
 
         return self.transform(image)
