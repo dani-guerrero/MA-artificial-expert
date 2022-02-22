@@ -50,8 +50,7 @@ def infer(photos):
         cropList = [row['photo'] for row in photos 
             if isInsect_classifier['classes'][insect_classification[row['report_id']] == 'insect']]
 
-        crops = Cropper(cropList)
-        crops = None
+        crops = Cropper(cropList).boxes
 
         species_classifier = settings.classifiers['species']
         speciesScore = Classifier(species_classifier['filename'],cropList,crops).scores
@@ -70,7 +69,7 @@ if __name__ == '__main__':
         while not finished:
             photos = getPendingReports()
             nReports = countReports(photos) 
-            finished = True # nReports < settings.QUERY_LIMIT
+            finished = nReports < settings.QUERY_LIMIT
             if nReports > 0:
                 inference_results = infer(photos)
                 #insertResults(inference_results)
