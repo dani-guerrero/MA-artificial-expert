@@ -1,0 +1,8 @@
+version: '3'
+services:
+  mzn:
+    image: minizinc/minizinc
+    container_name: minizn
+    volumes:
+      - ./vol:/home
+    command: tail -F anything
