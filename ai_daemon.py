@@ -41,8 +41,7 @@ def classifyReports(classifier, photos, scores):
 
 
 def infer(photos):
-    def insertScore(scores,classifier,photos):
-        df = pd.DataFrame.from_records(photos,columns=photos[0].keys())
+    def insertScore(scores,classifier,df):
         values = ""
         for key in scores:
             for classnum, score in enumerate(scores[key]):
@@ -55,8 +54,7 @@ def infer(photos):
                     {values}"""
         )
 
-    def insertBoxes(boxes,photos):
-        df = pd.DataFrame.from_records(photos,columns=photos[0].keys())
+    def insertBoxes(boxes,df):
         values = ""
         for key in boxes:
             box = boxes[key]
@@ -70,19 +68,21 @@ def infer(photos):
         )
 
 
+    df = pd.DataFrame.from_records(photos,columns=photos[0].keys())
+
     photoList = list(map(lambda row: row['photo'], photos))
 
     isInsect_classifier = settings.classifiers['isInsect']
     insectScore = Classifier(isInsect_classifier['filename'],photoList).scores
     insect_classification = classifyReports(isInsect_classifier,photos,insectScore)
 
-    insertScore(insectScore, isInsect_classifier, photos)
+    insertScore(insectScore, isInsect_classifier, df)
 
     cropList = [row['photo'] for row in photos 
         if isInsect_classifier['classes'][insect_classification[row['report_id']] == 'insect']]
     crops = Cropper(cropList).boxes
 
-    insertBoxes(crops, photos)
+    insertBoxes(crops, df)
 
     species_classifier = settings.classifiers['species']
     speciesScore = Classifier(species_classifier['filename'],cropList,crops).scores
@@ -92,8 +92,7 @@ def infer(photos):
     #species_classification = classifyReports(species_classifier,photos,speciesScore)
     return insectScore, speciesScore
 
-def countReports(photos):
-    df = pd.DataFrame.from_records(photos,columns=photos[0].keys())
+def countReports(df):
     return df['report_id'].nunique()
 
 
@@ -102,7 +101,8 @@ if __name__ == '__main__':
         finished = False
         while not finished:
             photos = getPendingReports()
-            nReports = countReports(photos) 
+            df = pd.DataFrame.from_records(photos,columns=photos[0].keys())
+            nReports = countReports(df) 
             finished = nReports < settings.QUERY_LIMIT
             if nReports > 0:
                 insect, species = infer(photos)
